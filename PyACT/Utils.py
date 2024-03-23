@@ -47,6 +47,55 @@ def construct_mats(ztab: str, delim: str = ','):
     return (z, m)
 
 
+def easy_params(method='Heise', context='FABO'):
+    """
+    Get standard equation parameters by name and context.
+
+    This is a convenience function that will provide one of severa default estimation methods for
+    the ACT equations. There are two methods, named for the researchers that developed the initial
+    estimation values, Hesie and Smith-Lovin. Heise's parameters come from OLS equations,
+    Smith-Lovin's from an ML technique. A context can also be selceted from one of six avalible
+    choices. These represent equations for both male and female observers, for situations involving
+    1) Actors, Behaviors and Object, 2) Actors, Behaviors, Objects and Settings, and
+    3) Self-directed action.
+
+    Parameters
+    ----------
+    method : str, optional
+        Which estimated parameters to use. Heise's OLS estimates, or Smith-Lovin's 
+        maximum likelyhood estimates. The default is 'Heise'.
+    context : TYPE, optional
+        Define the event context, can be one of the folowing 6:
+            FABO: Female- Actor, Behavior, Object
+            FABOS: Female- Actor, Behavior, Object, Setting
+            FSDA: Female- Self-directed action
+            MABO: Male- Actor, Behavior, Object
+            MABOS: Male- Actor, Behavior, Object, Setting
+            MSDA: Male- Self-directed action
+        The default is 'FABO'.
+
+    Raises
+    ------
+    TypeError
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    # check passed values are valid
+    valid_methods = ['Heise', 'Smith-Lovin']
+    valid_context = ['FABO', 'MABO', 'FABOS', 'MABOS', 'FSDA', 'MSDA']
+    if method not in valid_methods:
+        raise TypeError(f"Method must be one of {valid_methods}, but you passed {method}.")
+    if context not in valid_context:
+        raise TypeError(f"Context must be one of {valid_context}, but you passed {context}.")
+
+    mats = construct_mats('./Data/Ztabs/' + 'Z' + context.lower() + '.txt', delim='\\s+')
+    return (mats)
+
+
 def event_from_labels(culture: pd.DataFrame, a: str, b: str, o: str):
     """
     Get an event from a culture based on event labels.

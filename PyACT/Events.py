@@ -15,120 +15,120 @@ import Utils
 class Event:
     """ACT Event Handler."""
 
-    def __init__(self, funds, Z, M=None, estimate_transients=True, W='identity',
-                 t='Heise', k=0, vf=1, vt=1):
+    def __init__(self, Z, f, t='estimate', M=None, W='identity', k=0, vf=1, vt=1):
         # fundamentals for culture
-        self.funds = funds
-        f = np.array(funds[['e', 'p', 'a']]).reshape(-1)  # vector of ABO epa
+        self.funds = f
+        f = np.array(f[['e', 'p', 'a']]).reshape(-1)  # vector of ABO epa
 
         # Identify relavent fundamentals and their interactions
-        if estimate_transients:
-            # Get fundamentals involved in t
-            t = self.__build_t(t)
-            # Get coefficient and selection matrices for fundamentals
-            self.M = M
-            self.Z = Z
+        if t == 'estimate':
+            t = f
+        else:
+            t = np.array(t)
+        # Get coefficient and selection matrices for fundamentals
+        self.M = M
+        self.Z = Z
 
-            # Get weights for fundamentals and transients
-            self.W = self.__build_W(W)
-
-        else:  # will always fail at present (need to fix weighting)
-            try:
-                t[0] - 2
-
-            except TypeError:
-                raise ValueError(f'estimate_transients is False, expected sequence of transient'
-                                 f'impressions in t but got {t}.')
+        # Get weights for fundamentals and transients
+        self.W = self.__build_W(W)
 
         # Construct row and column vectors for f and t
-
         self.ft_row = np.concatenate([f, t])
         self.ft_col = self.ft_row.reshape(len(self.ft_row), 1)
 
         # Get first order weights for fundamentals and transients
         vf = self.__build_v(vf)
         vt = self.__build_v(vt, add_M=True)
-        print(vf)
-        print(vt)
+
         self.vft = np.concatenate([vf, vt])  # fundamental transient weight row vec
 
-    def __build_t(self, pattern):
-        """Build t vector for U equations"""
-        # check if t is a default equation
-        match pattern:
-            case 'Heise':  # default for abo
-                pattern = [1, 'Ae', 'Ap', 'Aa', 'Be', 'Bp', 'Ba', 'Oe', 'Op', 'Oa',
-                           'AeBe', 'AeBp', 'AeOe', 'ApBe', 'ApBp', 'ApBa', 'ApOe',
-                           'ApOp', 'ApOa', 'AaBp', 'AaBa', 'BeOe', 'BeOp', 'BpOe',
-                           'BpOp', 'BpOa', 'BaOp',
-                           'AeBeOe', 'AeBpOp', 'ApBpOp', 'ApBpOa']
-            case 'Heise_Settings':  # abo and settings
-                pattern = [1, 'Ae', 'Ap', 'Aa', 'Be', 'Bp', 'Ba', 'Oe', 'Op', 'Oa',
-                           'Se', 'Sp', 'Sa',
-                           'AeBe', 'AeBp', 'AeOe', 'ApBe', 'ApBp', 'ApBa', 'ApOe',
-                           'ApOp', 'ApOa', 'AaBp', 'AaBa', 'BeOe', 'BeOp', 'BpOe',
-                           'BpOp', 'BpOa', 'BaOp',
-                           'AeBeOe', 'AeBpOp', 'ApBpOp', 'ApBpOa']
-            case 'Smith-Lovin':  # Smith-Lovin's MLE version for abo
-                pattern = [1, 'Ae', 'Ap', 'Aa', 'Be', 'Bp', 'Ba', 'Oe', 'Op', 'Oa',
-                           'AeBe', 'AeBp', 'AeBa', 'ApBe', 'ApOa', 'AaBa',
-                           'BeOe', 'BeOp', 'BpOe', 'BpOp', 'BpOa', 'BaOe', 'BaOp',
-                           'AeBeOe', 'AeBpOp', 'ApBpOp', 'ApBpOa', 'AaBaOa']
+        # calculate weight matrix
+        self.W = self.__build_W(W)
 
-        # construct fundamental sentiment vector t
-        funds = self.funds[['E', 'P', 'A']].to_numpy()
-        t = []
-
-        # get intercept
-        if isinstance(pattern[0], (int, float)):
-            t.append(pattern[0])
-
-        # convert human readable to cords
-        pattern = pattern[1:]  # ignore intercept
-        pattern = [re.sub('A', '0', i) for i in pattern]
-        pattern = [re.sub('B', '1', i) for i in pattern]
-        pattern = [re.sub('O', '2', i) for i in pattern]
-
-        pattern = [re.sub('e', '0', i) for i in pattern]
-        pattern = [re.sub('p', '1', i) for i in pattern]
-        pattern = [re.sub('a', '2', i) for i in pattern]
-
-        # get fundamentals
-        for i in pattern:
-            if len(i) == 2:
-                t.append(funds[int(i[0]), int(i[1])])
-            elif len(i) > 2:
-                cords = [j for j in zip(*(iter(i),) * 2)]  # break elements into cords
-                cords = [funds[int(i[0]), int(i[1])] for i in cords]
-                t.append(np.prod(cords))  # interaction of all elements
-        return(t)
+        # get deflection for event
+        self.deflection = self.get_deflection()
 
     def __build_v(self, v, add_M=False):
-        if v == 1:
+        """
+        Construct first-order weighting matrix for deflection based equations.
+
+        Parameters
+        ----------
+        v : np.array
+             one dimnensional Array of weights .
+        add_M : Boolean, optional
+            If True an array of coefficents is added to the weights. The default is False.
+
+        Returns
+        -------
+        vw : TYPE
+            DESCRIPTION.
+
+        """
+        if v == 1:  # no weights, means these are all equal to one
             vw = ([1] * self.funds.shape[0] * 3)
-        else:
+        else:  # Otherwise, take what was given as gosple
             vw = v
         if add_M:
-            return(np.array(vw).reshape(len(vw), 1).dot(self.M))
-        else:
-            return(np.array(vw))
+            # vw must have same length as M has rows
+            vw = vw + ([1] * (self.M.shape[0] - len(vw)))
+            vw = np.array(vw).T.dot(self.M)
+        else:  # M was not passed, so we ignore it
+            vw = np.array(vw)
+        return (vw)
 
-    def __build_W(self, W, add_M=False):
-        if W == 'identity' and add_M:
+    def __build_W(self, W: str | np.ndarray, add_M: bool = False):
+        """
+        Construct weighting matrix for deflection based equations.
+
+        Parameters
+        ----------
+        W : str | np.array
+            Weighting matrix. If a custom matrix is passed, it should be a diagonal with the diag
+            elements equal to the number of EPA elements in the equation. EG: an ABO equation would
+            require 3 terms (A,B,O) times 3 componets (E,P,A) for 9 elements in the diagonal.
+        add_M : bool, optional
+            If True an array of coefficents is added to the weights. The default is False.
+
+        Returns
+        -------
+        W : TYPE
+            DESCRIPTION.
+
+        """
+        if W == 'identity':
             W = np.identity(self.funds.shape[0] * 3)
-            negWU = np.matmul(-W, self.M.transpose())  # upper right
-            negWL = np.matmul(-self.M, W)  # lower left
-            mwm = self.M.dot(W).dot(self.M.transpose())  # lower right
-            Wu = np.concatenate([W, negWU], axis=1)
-            Wl = np.concatenate([negWL, mwm], axis=1)
-            W = np.concatenate([Wu, Wl])
         else:
-            pass  # generalizations can be added here
-        return(W)
+            pass
+        if add_M:
+            WUr = np.matmul(-W, self.M.T)  # upper right
+            WLr = np.matmul(np.matmul(self.M, W), self.M.T)  # lower right
+            WLl = np.matmul(-self.M, W)  # lower left
+        else:
+            WUr = -W
+            WLl = -W
+            WLr = W
+        WUl = W
+        WU = np.concatenate([WUl, WUr], axis=1)
+        WL = np.concatenate([WLl, WLr], axis=1)
+        W = np.concatenate([WU, WL])
 
-    def deflection(self):
-        U = self.ft_row.dot(self.W).dot(self.ft_col)+self.vft.dot(self.ft_col)
-        return(U)
+        return (W)
+
+    def get_deflection(self):
+        """
+        Calculate deflection for the event.
+
+        Returns
+        -------
+        U : float
+            The "uncanniness" of an event. Equal to deflection when k is 0 (check this is so.)
+
+        """
+        term1 = np.matmul(np.matmul(self.ft_row, self.W), self.ft_col)
+        term2 = np.matmul(self.vft, self.ft_col)
+        U = term1 + term2
+        return (U)
 
     def optimize(self, element, culture):
         pass
