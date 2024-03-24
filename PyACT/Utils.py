@@ -100,6 +100,10 @@ def event_from_labels(culture: pd.DataFrame, a: str, b: str, o: str):
     """
     Get an event from a culture based on event labels.
 
+    This is a conviencen function that subsets a culture to a specific event, by the labeled
+    elements in the event. The returned subset is orderd such that the elements are in the
+    traditional grammer of ACT, that is the order is ABO.
+
     Parameters
     ----------
     culture : pd.DataFrame
@@ -115,7 +119,13 @@ def event_from_labels(culture: pd.DataFrame, a: str, b: str, o: str):
 
     Returns
     -------
-    Pandas data frame containing EPA elements asociated with the event.
+    Pandas data frame containing EPA elements asociated with the event in ABO order.
 
     """
-    return (culture.loc[culture.term.isin([a, b, o]), ['term', 'e', 'p', 'a']])
+    evnt = culture.loc[culture.term.isin([a, b, o]), ['abo', 'term', 'e', 'p', 'a']]
+    evnt['abo'] = np.where(evnt['term'] == o, 'object', evnt['abo'])
+    evnt['abo'] = pd.Categorical(evnt['abo'],
+                                 categories=['actor', 'behavior', 'object'],
+                                 ordered=True)
+    evnt = evnt.sort_values('abo')
+    return (evnt)

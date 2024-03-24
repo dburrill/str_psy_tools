@@ -24,5 +24,4 @@ ef = Utils.event_from_labels(amcult, 'scientist', 'lie_to', 'American')
 
 # create event. The event class will estimate the transient impressions from the fundamentals passed
 # to the class constructor (and do other things)
-import Events
 E = Events.Event(f=ef, Z=zm[0], M=zm[1])
